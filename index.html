@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Granular Wave Sampler & Synthesizer</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <!-- Fullscreen Window Drag & Drop Overlay -->
+  <div id="drag-overlay" class="drag-overlay hidden">
+    <div class="drag-overlay-content">
+      <div class="drag-overlay-icon">🎧</div>
+      <h2>Drop Audio File Anywhere</h2>
+      <p>Supports .wav, .mp3, .ogg, .flac, .m4a, .aac</p>
+    </div>
+  </div>
+
+  <div id="app">
+    <!-- Header Navigation Bar -->
+    <header class="header-bar">
+      <div class="brand-title">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>GRANULAR SYNTH</h1>
+          <p>Real-Time Web Audio Sampler</p>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <div class="status-pill octave-pill">
+          <span>OCTAVE:</span>
+          <strong id="octave-display">C4 (0)</strong>
+        </div>
+        <div class="status-pill">
+          <span class="status-dot" id="midi-dot"></span>
+          <span id="midi-status-text">MIDI: Searching...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Global Toast Notification Banner -->
+    <div id="toast-banner" class="toast-banner hidden">
+      <span id="toast-icon">✨</span>
+      <span id="toast-message">Audio sample loaded successfully!</span>
+    </div>
+
+    <!-- Main Top Section: File Loader + Waveform Canvas -->
+    <section class="main-top-section">
+      <!-- Audio File Loader Card -->
+      <div class="file-card">
+        <label for="file-input" class="drop-zone" id="drop-zone">
+          <span class="drop-zone-icon">🎵</span>
+          <h3>Load Audio Sample</h3>
+          <p>Drag & Drop audio file anywhere or click to browse</p>
+        </label>
+        <input type="file" id="file-input" accept="audio/*, .wav, .mp3, .ogg, .flac, .m4a, .aac, .webm, .aiff" />
+
+        <!-- Decoding Progress Bar -->
+        <div id="file-progress-container" class="file-progress-container hidden">
+          <div class="file-progress-label">
+            <span id="progress-status-text">Decoding audio sample...</span>
+            <span id="progress-percent-text">0%</span>
+          </div>
+          <div class="file-progress-track">
+            <div id="file-progress-fill" class="file-progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="sample-meta">
+          <div class="sample-meta-row">
+            <span>Sample:</span>
+            <span id="meta-name">Demo Harmonic Pad</span>
+          </div>
+          <div class="sample-meta-row">
+            <span>Duration:</span>
+            <span id="meta-duration">4.00 s</span>
+          </div>
+          <div class="sample-meta-row">
+            <span>Sample Rate:</span>
+            <span id="meta-rate">44.1 kHz</span>
+          </div>
+          <div class="sample-meta-row">
+            <span>Channels:</span>
+            <span id="meta-channels">2 (Stereo)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Waveform Visualizer Card -->
+      <div class="visualizer-card">
+        <div class="visualizer-header">
+          <h2>Waveform & Grain Visualizer</h2>
+          <p>Click & Drag to position grain playback point</p>
+        </div>
+        <div class="canvas-container">
+          <canvas id="waveform-canvas"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Granular Controls Rack -->
+    <section class="rack-card">
+      <div class="rack-header">
+        <h2>Granular Engine Parameters</h2>
+
+        <div class="presets-bar">
+          <span class="presets-label">Presets:</span>
+          <button class="preset-btn" data-preset="ambientCloud">Ambient Cloud</button>
+          <button class="preset-btn" data-preset="staccatoGlitch">Staccato Glitch</button>
+          <button class="preset-btn" data-preset="frozenTexture">Frozen Texture</button>
+          <button class="preset-btn" data-preset="pulsingDrone">Pulsing Drone</button>
+        </div>
+      </div>
+
+      <div class="controls-grid">
+        <!-- Group 1: Granular Core -->
+        <div class="control-group">
+          <div class="group-title">1. Granular Engine</div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Position</span>
+              <span class="control-value" id="val-position">25%</span>
+            </div>
+            <input type="range" id="param-position" min="0" max="1" step="0.005" value="0.25" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Spray (Jitter)</span>
+              <span class="control-value" id="val-spray">8%</span>
+            </div>
+            <input type="range" id="param-spray" min="0" max="0.3" step="0.005" value="0.08" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Grain Size</span>
+              <span class="control-value" id="val-grainSize">120 ms</span>
+            </div>
+            <input type="range" id="param-grainSize" min="0.02" max="0.5" step="0.005" value="0.12" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Grain Density</span>
+              <span class="control-value" id="val-density">25/sec</span>
+            </div>
+            <input type="range" id="param-density" min="5" max="60" step="1" value="25" />
+          </div>
+        </div>
+
+        <!-- Group 2: Pitch & Modulation -->
+        <div class="control-group">
+          <div class="group-title">2. Pitch & Spatial</div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Pitch Transpose</span>
+              <span class="control-value" id="val-pitchShift">0 st</span>
+            </div>
+            <input type="range" id="param-pitchShift" min="-12" max="12" step="1" value="0" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Random Detune</span>
+              <span class="control-value" id="val-detune">10 cents</span>
+            </div>
+            <input type="range" id="param-detune" min="0" max="50" step="1" value="10" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Stereo Pan Width</span>
+              <span class="control-value" id="val-stereoWidth">80%</span>
+            </div>
+            <input type="range" id="param-stereoWidth" min="0" max="1" step="0.05" value="0.8" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Master Volume</span>
+              <span class="control-value" id="val-volume">80%</span>
+            </div>
+            <input type="range" id="param-volume" min="0" max="1" step="0.02" value="0.8" />
+          </div>
+        </div>
+
+        <!-- Group 3: Envelope & FX -->
+        <div class="control-group">
+          <div class="group-title">3. Envelope & FX</div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Attack</span>
+              <span class="control-value" id="val-attack">0.05 s</span>
+            </div>
+            <input type="range" id="param-attack" min="0.005" max="1.5" step="0.01" value="0.05" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Release</span>
+              <span class="control-value" id="val-release">0.50 s</span>
+            </div>
+            <input type="range" id="param-release" min="0.02" max="3.0" step="0.05" value="0.5" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Lowpass Filter</span>
+              <span class="control-value" id="val-cutoff">12.0 kHz</span>
+            </div>
+            <input type="range" id="param-cutoff" min="200" max="20000" step="100" value="12000" />
+          </div>
+
+          <div class="control-item">
+            <div class="control-label-row">
+              <span class="control-name">Space Reverb</span>
+              <span class="control-value" id="val-reverbLevel">35%</span>
+            </div>
+            <input type="range" id="param-reverbLevel" min="0" max="1" step="0.02" value="0.35" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Piano Keyboard & Shortcuts Section -->
+    <section class="piano-card">
+      <div class="piano-header">
+        <h2>Interactive Piano Keyboard</h2>
+
+        <div class="keyboard-instructions">
+          <span>Notes: <span class="kbd-badge">A</span> <span class="kbd-badge">W</span> <span class="kbd-badge">S</span> <span class="kbd-badge">E</span> <span class="kbd-badge">D</span> <span class="kbd-badge">F</span> <span class="kbd-badge">T</span> <span class="kbd-badge">G</span> <span class="kbd-badge">Z</span> <span class="kbd-badge">H</span> <span class="kbd-badge">J</span></span>
+          <span>Octave Down: <span class="kbd-badge">Y</span></span>
+          <span>Octave Up: <span class="kbd-badge">X</span></span>
+        </div>
+      </div>
+
+      <div class="piano-container" id="piano-container"></div>
+    </section>
+
+    <footer>
+      Granular Audio Sampler & Synthesizer &bull; Built with Web Audio API & Web MIDI API
+    </footer>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
