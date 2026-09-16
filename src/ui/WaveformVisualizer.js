@@ -1,7 +1,7 @@
 /**
  * WaveformVisualizer.js
  * Interactive canvas component displaying audio waveform, position selector,
- * spray region, and real-time animated grain particles
+ * spray region, and real-time animated grain particles (Monochrome 5-tone Theme)
  */
 
 export class WaveformVisualizer {
@@ -91,11 +91,11 @@ export class WaveformVisualizer {
 
     ctx.clearRect(0, 0, width, height);
 
-    // 1. Draw Background Grid
-    ctx.fillStyle = '#0f1423';
+    // 1. Draw Background Grid (Monochrome Black & Subtle White Lines)
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
     const gridCols = 16;
     for (let i = 1; i < gridCols; i++) {
@@ -117,7 +117,7 @@ export class WaveformVisualizer {
     const buffer = this.audioEngine.audioBuffer;
     const params = this.audioEngine.params;
 
-    // 2. Draw Waveform
+    // 2. Draw Waveform (Monochrome White Gradient)
     if (buffer) {
       const data = buffer.getChannelData(0);
       const step = Math.ceil(data.length / width);
@@ -154,21 +154,21 @@ export class WaveformVisualizer {
 
       ctx.closePath();
 
-      // Waveform Gradient Fill
+      // Waveform Gradient Fill (White to Mid Grey Opacity)
       const grad = ctx.createLinearGradient(0, 0, 0, height);
-      grad.addColorStop(0, 'rgba(0, 229, 255, 0.45)');
-      grad.addColorStop(0.5, 'rgba(0, 150, 255, 0.2)');
-      grad.addColorStop(1, 'rgba(0, 229, 255, 0.45)');
+      grad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+      grad.addColorStop(0.5, 'rgba(187, 187, 187, 0.15)');
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0.45)');
       ctx.fillStyle = grad;
       ctx.fill();
 
       // Waveform Outline
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
       ctx.stroke();
     }
 
-    // 3. Draw Granular Spray Region (Position +/- Spray)
+    // 3. Draw Granular Spray Region (Monochrome Grey Tint)
     const basePosNorm = params.position;
     const sprayNorm = params.spray;
     const sprayLeftX = Math.max(0, (basePosNorm - sprayNorm / 2) * width);
@@ -176,38 +176,38 @@ export class WaveformVisualizer {
     const sprayWidth = sprayRightX - sprayLeftX;
 
     const sprayGrad = ctx.createLinearGradient(sprayLeftX, 0, sprayRightX, 0);
-    sprayGrad.addColorStop(0, 'rgba(179, 136, 255, 0.05)');
-    sprayGrad.addColorStop(0.5, 'rgba(179, 136, 255, 0.28)');
-    sprayGrad.addColorStop(1, 'rgba(179, 136, 255, 0.05)');
+    sprayGrad.addColorStop(0, 'rgba(102, 102, 102, 0.05)');
+    sprayGrad.addColorStop(0.5, 'rgba(187, 187, 187, 0.25)');
+    sprayGrad.addColorStop(1, 'rgba(102, 102, 102, 0.05)');
 
     ctx.fillStyle = sprayGrad;
     ctx.fillRect(sprayLeftX, 0, sprayWidth, height);
 
-    ctx.strokeStyle = 'rgba(179, 136, 255, 0.6)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     ctx.strokeRect(sprayLeftX, 0, sprayWidth, height);
     ctx.setLineDash([]);
 
-    // 4. Draw Primary Target Position Scrubber
+    // 4. Draw Primary Target Position Scrubber (Bright White)
     const posX = basePosNorm * width;
     ctx.beginPath();
     ctx.moveTo(posX, 0);
     ctx.lineTo(posX, height);
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
-    ctx.shadowColor = '#00e5ff';
-    ctx.shadowBlur = 12;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 10;
     ctx.stroke();
     ctx.shadowBlur = 0;
 
     // Handle Pin on top
-    ctx.fillStyle = '#00e5ff';
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(posX, 6, 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // 5. Render Active Granular Particle Bursts
+    // 5. Render Active Granular Particle Bursts (Monochrome Sparkles & Beams)
     const grains = this.audioEngine.getActiveGrains();
     const now = performance.now();
 
@@ -220,12 +220,12 @@ export class WaveformVisualizer {
       const alpha = Math.sin(Math.PI * progress) * (0.6 + g.velocity * 0.4);
       const beamWidth = Math.max(2, g.normDuration * width);
 
-      ctx.fillStyle = `rgba(255, 0, 128, ${alpha})`;
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
       ctx.fillRect(gx - beamWidth / 2, 0, beamWidth, height);
 
       // Glowing dot head
       const dotY = height / 2 + (Math.sin(g.normPos * 100 + progress * 10) * (height * 0.35));
-      ctx.fillStyle = `rgba(255, 235, 59, ${alpha})`;
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.beginPath();
       ctx.arc(gx, dotY, 3 + (1 - progress) * 4, 0, Math.PI * 2);
       ctx.fill();

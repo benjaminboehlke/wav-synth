@@ -1,6 +1,7 @@
 /**
  * main.js
- * Application entry point wiring up UI, Audio Engine, Controllers, and Visualizers
+ * Application entry point wiring up UI, Audio Engine, Controllers, Visualizers,
+ * and Interactive MIDI CC Parameter Learning System
  */
 
 import { AudioEngine } from './audio/AudioEngine.js';
@@ -66,9 +67,37 @@ document.addEventListener('DOMContentLoaded', () => {
     octaveDisplay.textContent = `${octName} (${sign})`;
   };
 
-  // 5. Initialize Web MIDI Controller
+  // 5. Granular Control Sliders Configuration & Range Definitions
+  const paramControls = [
+    { id: 'position', min: 0, max: 1, name: 'Position', formatter: val => `${Math.round(val * 100)}%` },
+    { id: 'spray', min: 0, max: 0.3, name: 'Spray (Jitter)', formatter: val => `${Math.round(val * 100)}%` },
+    { id: 'grainSize', min: 0.02, max: 0.5, name: 'Grain Size', formatter: val => `${Math.round(val * 1000)} ms` },
+    { id: 'density', min: 5, max: 60, name: 'Grain Density', formatter: val => `${val}/sec` },
+    { id: 'pitchShift', min: -12, max: 12, name: 'Pitch Transpose', formatter: val => `${val > 0 ? '+' : ''}${val} st` },
+    { id: 'detune', min: 0, max: 50, name: 'Random Detune', formatter: val => `${val} cents` },
+    { id: 'stereoWidth', min: 0, max: 1, name: 'Stereo Pan Width', formatter: val => `${Math.round(val * 100)}%` },
+    { id: 'volume', min: 0, max: 1, name: 'Master Volume', formatter: val => `${Math.round(val * 100)}%` },
+    { id: 'attack', min: 0.005, max: 1.5, name: 'Attack', formatter: val => `${val.toFixed(2)} s` },
+    { id: 'release', min: 0.02, max: 3.0, name: 'Release', formatter: val => `${val.toFixed(2)} s` },
+    { id: 'cutoff', min: 200, max: 20000, name: 'Lowpass Filter', formatter: val => val >= 1000 ? `${(val / 1000).toFixed(1)} kHz` : `${val} Hz` },
+    { id: 'reverbLevel', min: 0, max: 1, name: 'Space Reverb', formatter: val => `${Math.round(val * 100)}%` }
+  ];
+
+  function updateParamUI(paramId, value) {
+    const inputEl = document.getElementById(`param-${paramId}`);
+    const valEl = document.getElementById(`val-${paramId}`);
+    const config = paramControls.find(p => p.id === paramId);
+
+    if (inputEl) inputEl.value = value;
+    if (valEl && config) valEl.textContent = config.formatter(value);
+  }
+
+  // 6. Initialize Web MIDI Controller & Control Change (CC) Engine
   const midiDot = document.getElementById('midi-dot');
   const midiStatusText = document.getElementById('midi-status-text');
+
+  let isMidiLearnActive = false;
+  let activeTargetParam = null;
 
   const midiController = new MidiController({
     onNoteOn: (keyId, midiNote, velocity) => handleNoteOn(keyId, midiNote, velocity),
@@ -80,10 +109,130 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         midiDot.classList.remove('active');
       }
+    },
+    onControlChange: (paramId, normValue, rawCcValue, ccNumber) => {
+      const config = paramControls.find(p => p.id === paramId);
+      if (!config) return;
+
+      const scaledValue = config.min + normValue * (config.max - config.min);
+      audioEngine.updateParam(paramId, scaledValue);
+      updateParamUI(paramId, scaledValue);
+    },
+    onMidiLearnCC: (ccNumber) => {
+      if (!isMidiLearnActive || !activeTargetParam) return;
+
+      midiController.bindCc(ccNumber, activeTargetParam);
+      const config = paramControls.find(p => p.id === activeTargetParam);
+      const paramName = config ? config.name : activeTargetParam;
+
+      showToast(`Bound "${paramName}" to MIDI CC ${ccNumber}`, '🎛️');
+
+      // Clear target highlight
+      const targetItem = document.querySelector(`.control-item[data-param="${activeTargetParam}"]`);
+      if (targetItem) targetItem.classList.remove('waiting-for-midi');
+
+      activeTargetParam = null;
+      midiController.setLearningMode(false);
+      refreshCcBadges();
     }
   });
 
-  // 6. Optimized Audio File Loader & Drag-and-Drop System
+  // Refresh visible MIDI CC badges
+  function refreshCcBadges() {
+    paramControls.forEach(({ id }) => {
+      const cc = midiController.getMappedCc(id);
+      const badge = document.getElementById(`cc-badge-${id}`);
+      if (badge) {
+        if (cc !== null) {
+          badge.textContent = `CC ${cc}`;
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+    });
+  }
+
+  // Initial badge update from loaded storage
+  refreshCcBadges();
+
+  // MIDI Learn & Clear Button Handlers
+  const btnMidiLearn = document.getElementById('btn-midi-learn');
+  const btnMidiClear = document.getElementById('btn-midi-clear');
+  const controlItems = document.querySelectorAll('.control-item');
+
+  function toggleMidiLearn(forceState = null) {
+    isMidiLearnActive = forceState !== null ? forceState : !isMidiLearnActive;
+    activeTargetParam = null;
+    midiController.setLearningMode(false);
+
+    if (isMidiLearnActive) {
+      btnMidiLearn.classList.add('active');
+      btnMidiLearn.textContent = '🔴 Learning... (Click a control)';
+      showToast('MIDI Learn Active: Click any parameter, then turn a knob on your MIDI controller', '🎛️');
+
+      controlItems.forEach(item => {
+        item.classList.add('is-learnable');
+      });
+    } else {
+      btnMidiLearn.classList.remove('active');
+      btnMidiLearn.textContent = '🎛️ MIDI Learn';
+
+      controlItems.forEach(item => {
+        item.classList.remove('is-learnable', 'waiting-for-midi');
+      });
+    }
+  }
+
+  if (btnMidiLearn) {
+    btnMidiLearn.addEventListener('click', () => toggleMidiLearn());
+  }
+
+  if (btnMidiClear) {
+    btnMidiClear.addEventListener('click', () => {
+      midiController.clearMappings();
+      refreshCcBadges();
+      if (isMidiLearnActive) toggleMidiLearn(false);
+      showToast('Cleared all MIDI hardware mappings', '🧹');
+    });
+  }
+
+  // Handle parameter click in MIDI Learn mode
+  controlItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (!isMidiLearnActive) return;
+      // Ignore click if clicking directly on a CC unbind badge
+      if (e.target.classList.contains('midi-cc-badge')) return;
+
+      const paramId = item.dataset.param;
+      if (!paramId) return;
+
+      activeTargetParam = paramId;
+      midiController.setLearningMode(true);
+
+      controlItems.forEach(i => i.classList.remove('waiting-for-midi'));
+      item.classList.add('waiting-for-midi');
+
+      const config = paramControls.find(p => p.id === paramId);
+      const name = config ? config.name : paramId;
+      showToast(`Selected "${name}". Turn any knob/fader on your MIDI controller now...`, '⌛');
+    });
+  });
+
+  // Handle unbinding single CC badge on click
+  paramControls.forEach(({ id }) => {
+    const badge = document.getElementById(`cc-badge-${id}`);
+    if (badge) {
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        midiController.unbindParam(id);
+        refreshCcBadges();
+        showToast(`Unbound MIDI hardware control from parameter`, '🗑️');
+      });
+    }
+  });
+
+  // 7. Optimized Audio File Loader & Drag-and-Drop System
   const dropZone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('file-input');
   const dragOverlay = document.getElementById('drag-overlay');
@@ -227,31 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 7. Granular Control Sliders Mapping & Sync
-  const paramControls = [
-    { id: 'position', formatter: val => `${Math.round(val * 100)}%` },
-    { id: 'spray', formatter: val => `${Math.round(val * 100)}%` },
-    { id: 'grainSize', formatter: val => `${Math.round(val * 1000)} ms` },
-    { id: 'density', formatter: val => `${val}/sec` },
-    { id: 'pitchShift', formatter: val => `${val > 0 ? '+' : ''}${val} st` },
-    { id: 'detune', formatter: val => `${val} cents` },
-    { id: 'stereoWidth', formatter: val => `${Math.round(val * 100)}%` },
-    { id: 'volume', formatter: val => `${Math.round(val * 100)}%` },
-    { id: 'attack', formatter: val => `${val.toFixed(2)} s` },
-    { id: 'release', formatter: val => `${val.toFixed(2)} s` },
-    { id: 'cutoff', formatter: val => val >= 1000 ? `${(val / 1000).toFixed(1)} kHz` : `${val} Hz` },
-    { id: 'reverbLevel', formatter: val => `${Math.round(val * 100)}%` }
-  ];
-
-  function updateParamUI(paramId, value) {
-    const inputEl = document.getElementById(`param-${paramId}`);
-    const valEl = document.getElementById(`val-${paramId}`);
-    const config = paramControls.find(p => p.id === paramId);
-
-    if (inputEl) inputEl.value = value;
-    if (valEl && config) valEl.textContent = config.formatter(value);
-  }
-
+  // 8. Granular Control Sliders Mapping & Input Binding
   paramControls.forEach(({ id }) => {
     const inputEl = document.getElementById(`param-${id}`);
     if (inputEl) {
@@ -263,8 +388,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 8. Preset Manager Buttons Binding
-  const presetBtns = document.querySelectorAll('.preset-btn');
+  // 9. Preset Manager Buttons Binding
+  const presetBtns = document.querySelectorAll('.preset-btn[data-preset]');
   presetBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const presetKey = btn.dataset.preset;

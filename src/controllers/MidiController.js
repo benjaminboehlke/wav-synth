@@ -1,16 +1,27 @@
 /**
  * MidiController.js
- * Handles Web MIDI API access, device connection, and MIDI Note events
+ * Handles Web MIDI API access, device connection, MIDI Note events,
+ * and MIDI Control Change (CC) parameter mapping with localStorage persistence.
  */
 
+const STORAGE_KEY = 'wav_synth_midi_mappings';
+
 export class MidiController {
-  constructor({ onNoteOn, onNoteOff, onStatusChange }) {
+  constructor({ onNoteOn, onNoteOff, onStatusChange, onControlChange, onMidiLearnCC }) {
     this.onNoteOn = onNoteOn;
     this.onNoteOff = onNoteOff;
     this.onStatusChange = onStatusChange;
+    this.onControlChange = onControlChange;
+    this.onMidiLearnCC = onMidiLearnCC;
+
     this.midiAccess = null;
     this.connectedDevices = [];
+    this.isLearning = false;
 
+    // ccNumber (number) -> paramId (string)
+    this.mappings = new Map();
+
+    this.loadMappings();
     this.init();
   }
 
@@ -27,7 +38,7 @@ export class MidiController {
       this.updateDevices();
 
       // Listen for MIDI device connection/disconnection events
-      this.midiAccess.onstatechange = (e) => {
+      this.midiAccess.onstatechange = () => {
         this.updateDevices();
       };
 
@@ -65,10 +76,83 @@ export class MidiController {
     }
   }
 
+  setLearningMode(learning) {
+    this.isLearning = learning;
+  }
+
+  bindCc(ccNumber, paramId) {
+    // Remove existing CC mapping for this param if any
+    for (const [cc, pId] of this.mappings.entries()) {
+      if (pId === paramId) {
+        this.mappings.delete(cc);
+      }
+    }
+    this.mappings.set(ccNumber, paramId);
+    this.saveMappings();
+  }
+
+  unbindParam(paramId) {
+    for (const [cc, pId] of this.mappings.entries()) {
+      if (pId === paramId) {
+        this.mappings.delete(cc);
+      }
+    }
+    this.saveMappings();
+  }
+
+  unbindCc(ccNumber) {
+    this.mappings.delete(ccNumber);
+    this.saveMappings();
+  }
+
+  clearMappings() {
+    this.mappings.clear();
+    this.saveMappings();
+  }
+
+  getMappedCc(paramId) {
+    for (const [cc, pId] of this.mappings.entries()) {
+      if (pId === paramId) return cc;
+    }
+    return null;
+  }
+
+  getAllMappings() {
+    const result = {};
+    for (const [cc, pId] of this.mappings.entries()) {
+      result[pId] = cc;
+    }
+    return result;
+  }
+
+  loadMappings() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const obj = JSON.parse(saved);
+        Object.entries(obj).forEach(([ccStr, paramId]) => {
+          this.mappings.set(parseInt(ccStr, 10), paramId);
+        });
+      }
+    } catch (e) {
+      console.warn('Could not load MIDI mappings from localStorage', e);
+    }
+  }
+
+  saveMappings() {
+    try {
+      const obj = {};
+      for (const [cc, paramId] of this.mappings.entries()) {
+        obj[cc] = paramId;
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+    } catch (e) {
+      console.warn('Could not save MIDI mappings to localStorage', e);
+    }
+  }
+
   handleMidiMessage(event) {
     const [command, note, velocity] = event.data;
-
-    // Command types (ignoring channel bits 0-15)
     const cmdType = command & 0xf0;
 
     if (cmdType === 0x90 && velocity > 0) {
@@ -81,6 +165,22 @@ export class MidiController {
       // Note Off
       if (this.onNoteOff) {
         this.onNoteOff(`midi_${note}`, note);
+      }
+    } else if (cmdType === 0xb0) {
+      // Control Change (CC)
+      const ccNumber = note;
+      const ccValue = velocity; // 0..127
+      const normValue = ccValue / 127;
+
+      if (this.isLearning && this.onMidiLearnCC) {
+        this.onMidiLearnCC(ccNumber, ccValue);
+      }
+
+      if (this.mappings.has(ccNumber)) {
+        const paramId = this.mappings.get(ccNumber);
+        if (this.onControlChange) {
+          this.onControlChange(paramId, normValue, ccValue, ccNumber);
+        }
       }
     }
   }
