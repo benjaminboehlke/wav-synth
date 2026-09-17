@@ -12,11 +12,16 @@
 
 :root {
   /* 5 Monochrome Palette Tones */
-  --tone-1: #000000; /* Pure Black */
-  --tone-2: #222222; /* Dark Grey */
-  --tone-3: #666666; /* Mid Grey */
-  --tone-4: #bbbbbb; /* Light Grey */
-  --tone-5: #ffffff; /* Pure White */
+  --tone-1: #000000;
+  /* Pure Black */
+  --tone-2: #222222;
+  /* Dark Grey */
+  --tone-3: #393939;
+  /* Mid Grey */
+  --tone-4: #bbbbbb;
+  /* Light Grey */
+  --tone-5: #ffffff;
+  /* Pure White */
 
   --bg-dark: var(--tone-1);
   --panel-bg: rgba(34, 34, 34, 0.85);
@@ -751,8 +756,15 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 @keyframes learnButtonPulse {
-  0% { transform: scale(1); box-shadow: 0 0 8px rgba(255, 255, 255, 0.5); }
-  100% { transform: scale(1.05); box-shadow: 0 0 16px rgba(255, 255, 255, 1); }
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  }
+
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 0 16px rgba(255, 255, 255, 1);
+  }
 }
 
 .preset-btn.midi-clear-btn {
@@ -802,8 +814,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 @keyframes targetPulse {
-  0% { border-color: var(--tone-3); }
-  100% { border-color: var(--tone-5); }
+  0% {
+    border-color: var(--tone-3);
+  }
+
+  100% {
+    border-color: var(--tone-5);
+  }
 }
 
 /* Footer */

@@ -156,16 +156,16 @@ export class WaveformVisualizer {
 
       // Waveform Gradient Fill (White to Mid Grey Opacity)
       const grad = ctx.createLinearGradient(0, 0, 0, height);
-      grad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-      grad.addColorStop(0.5, 'rgba(187, 187, 187, 0.15)');
-      grad.addColorStop(1, 'rgba(255, 255, 255, 0.45)');
+      grad.addColorStop(0, 'rgba(0, 0, 255, 1.0)');
+      grad.addColorStop(0.5, 'rgba(0, 0, 255, 1.0)');
+      grad.addColorStop(1, 'rgba(0, 0, 255, 1.0)');
       ctx.fillStyle = grad;
       ctx.fill();
 
       // Waveform Outline
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      ctx.lineWidth = 0;
+      //ctx.stroke();
     }
 
     // 3. Draw Granular Spray Region (Monochrome Grey Tint)
